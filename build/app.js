@@ -27,18 +27,23 @@ const theme = {
         },
     },
 };
+/**
+ * See if class icons are saved locally, if not grab and save them then return the local version
+ * @param playerClasses
+ * @returns : [Images]
+ */
 async function storeAndRetrieveClassIcons(playerClasses) {
     const manager = FileManager.local();
-    const localPath = manager.libraryDirectory();
-    let playerClassIcons = [];
+    const localPath = manager.documentsDirectory();
+    let playerClassIcons = {};
     for await (let playerClass of playerClasses) {
         playerClass = playerClass.toLowerCase();
-        if (!manager.fileExists(`${localPath}${playerClass}.png`)) {
+        if (!manager.fileExists(`${localPath}/${playerClass}.png`)) {
             const classIcon = await getClassImage(playerClass);
-            manager.writeImage(`${localPath}${playerClass}.png`, classIcon);
+            manager.writeImage(`${localPath}/${playerClass}.png`, classIcon);
         }
-        else {
-        }
+        const classIconToAdd = manager.readImage(`${localPath}/${playerClass}.png`);
+        playerClassIcons[playerClass] = classIconToAdd;
     }
     return playerClassIcons;
 }
@@ -49,12 +54,13 @@ async function storeAndRetrieveClassIcons(playerClasses) {
  */
 async function combineAllDecks(allDecks) {
     const allPlayerClasses = Object.keys(allDecks.series.metadata);
-    return allPlayerClasses.reduce((accumulator, allClassDecks) => {
+    const reducer = (accumulator, allClassDecks) => {
         return [
             ...accumulator,
             ...Object.values(allDecks.series.data[allClassDecks]),
         ];
-    }, []);
+    };
+    return allPlayerClasses.reduce(reducer, []);
 }
 /**
  * Combines the decks array and the archetypes array
@@ -65,9 +71,13 @@ async function combineAllDecks(allDecks) {
 async function addArchetypesToDecks(allDecks, allArchetypes) {
     return allDecks
         .map((deck) => {
+        const finder = (archetype) => {
+            if (archetype.id === deck.archetype_id)
+                return archetype;
+        };
         return {
-            archetype: allArchetypes.find((archetype) => archetype.id === deck.archetype_id),
             ...deck,
+            archetype: allArchetypes.find(finder),
         };
     })
         .filter((deck) => deck.archetype);
@@ -104,7 +114,7 @@ function widgetDeckLimit() {
         return 3;
     if (config.widgetFamily === "large")
         return 6;
-    return data.length - 1;
+    return allDecks.length;
 }
 /**
  * Returns what tier the deck is from the win rate
@@ -120,7 +130,7 @@ function tierFromWinRate(winRate) {
 }
 async function sortDecksIntoTiers(decks) {
     let tiers = {};
-    for (deck of decks) {
+    for (const deck of decks) {
         for (const [tier, tierFloor] of Object.entries(settings.tierFloors)) {
             if (parseInt(deck.win_rate) > tierFloor) {
                 if (typeof tiers[tier] == "undefined")
@@ -133,10 +143,9 @@ async function sortDecksIntoTiers(decks) {
     return tiers;
 }
 function winRateColour(winRate) {
-    winRate = typeof winRate === "string" ? parseInt(winRate) : winRate;
-    if (winRate > 50)
+    if (parseInt(winRate) > 50)
         return theme.colours.green;
-    if (winRate > 40)
+    if (parseInt(winRate) > 40)
         return theme.colours.orange;
     return theme.colours.red;
 }
@@ -145,8 +154,9 @@ async function createWidget() {
     // 	if small widget just display image
     if (config.widgetFamily === "small") {
         const HSReplayLogo = await getImage("https://static.hsreplay.net/static/images/logo.58ae9cde1d07.png");
-        widget.addImage(HSReplayLogo).centerAlignImage();
-        widget.imageSize = new Size(50, 50);
+        const smallWidgetImage = widget.addImage(HSReplayLogo);
+        smallWidgetImage.centerAlignImage();
+        smallWidgetImage.imageSize = new Size(100, 100);
         widget.backgroundColor = theme.colours.blue;
         Script.setWidget(widget);
         return;
@@ -188,24 +198,23 @@ function viewDeck(rowNumber) {
     Safari.open(`https://hsreplay.net${allDecks[rowNumber].archetype.url}`);
 }
 async function createTable() {
-    let table = new UITable();
+    const table = new UITable();
     table.showSeparators = true;
-    let deckTiers = await sortDecksIntoTiers(allDecks);
-    for await (let [tier, decks] of Object.entries(deckTiers)) {
-        let tierHeader = new UITableRow();
+    const deckTiers = await sortDecksIntoTiers(allDecks);
+    for await (const [tier, decks] of Object.entries(deckTiers)) {
+        const tierHeader = new UITableRow();
         tierHeader.isHeader = true;
         tierHeader.backgroundColor = theme.colours.blue;
         tierHeader.addText(tier.replace("T", "Tier "));
         table.addRow(tierHeader);
-        for await (deck of decks) {
-            let row = new UITableRow();
+        for await (const deck of decks) {
+            const row = new UITableRow();
             row.height = 80;
             row.cellSpacing = 0;
-            //       const classImage = await getClassImage(deck.archetype.player_class_name);
-            let classImage = Image.fromData(theme.playerClassImage);
-            let classImageCell = row.addImage(classImage);
+            const classImage = classIcons[deck.archetype.player_class_name.toLowerCase()];
+            const classImageCell = row.addImage(classImage);
             classImageCell.widthWeight = 20;
-            let textCell = row.addText(deck.archetype.name, `${deck.win_rate}%`);
+            const textCell = row.addText(deck.archetype.name, `${deck.win_rate}%`);
             textCell.widthWeight = 80;
             textCell.titleFont = theme.font.table.deckName;
             textCell.subtitleFont = theme.font.table.deckWinRate;
@@ -220,8 +229,7 @@ async function createTable() {
 // Get raw data
 const archetypes = await getJSON("https://hsreplay.net/api/v1/archetypes/?format=json");
 const allDecksData = await getJSON("https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION");
-// Save classes icons if not already dkne so
-const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.metadata));
+const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
 // Assemble data
 const combinedDecks = await combineAllDecks(allDecksData);
 const combinedDecksWithArchetypes = await addArchetypesToDecks(combinedDecks, archetypes);

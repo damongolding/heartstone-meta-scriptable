@@ -1,27 +1,11 @@
-export interface Archetypes {
+export interface Archetype {
   id: number;
   name: string;
   player_class: number;
-  player_class_name: PlayerClassName;
+  player_class_name: string;
   url: string;
   standard_ccp_signature_core: StandardCcpSignatureCore | null;
   wild_ccp_signature_core: null;
-}
-
-export enum PlayerClassName {
-  Deathknight = "DEATHKNIGHT",
-  Demonhunter = "DEMONHUNTER",
-  Druid = "DRUID",
-  Hunter = "HUNTER",
-  Mage = "MAGE",
-  Neutral = "NEUTRAL",
-  Paladin = "PALADIN",
-  Priest = "PRIEST",
-  Rogue = "ROGUE",
-  Shaman = "SHAMAN",
-  Warlock = "WARLOCK",
-  Warrior = "WARRIOR",
-  Whizbang = "WHIZBANG",
 }
 
 export interface StandardCcpSignatureCore {
@@ -80,7 +64,7 @@ export interface TierFloors {
 }
 
 export interface CombinedDeckData extends DeckData {
-  archetype: Archetypes;
+  archetype: Archetype | undefined;
 }
 
 export interface PlayerClassIcons {
