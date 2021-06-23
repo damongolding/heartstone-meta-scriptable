@@ -1,4 +1,4 @@
-export interface Archetype {
+declare interface Archetype {
   id: number;
   name: string;
   player_class: number;
@@ -8,28 +8,28 @@ export interface Archetype {
   wild_ccp_signature_core: null;
 }
 
-export interface StandardCcpSignatureCore {
+declare interface StandardCcpSignatureCore {
   as_of: string;
   format: number;
   components: number[];
 }
 
-export interface HsReplayDeckData {
+declare interface HsReplayDeckData {
   render_as: string;
   series: Series;
   as_of: string;
 }
 
-export interface Series {
+declare interface Series {
   metadata: Metadata;
   data: Data;
 }
 
-export interface Data {
+declare interface Data {
   [key: string]: DeckData[];
 }
 
-export interface DeckData {
+declare interface DeckData {
   archetype_id: number;
   total_games: number;
   pct_of_class: number;
@@ -37,7 +37,7 @@ export interface DeckData {
   win_rate: number | string;
 }
 
-export interface Metadata {
+declare interface Metadata {
   DEMONHUNTER: ClassMetadata;
   DRUID: ClassMetadata;
   HUNTER: ClassMetadata;
@@ -50,27 +50,29 @@ export interface Metadata {
   WARRIOR: ClassMetadata;
 }
 
-export interface ClassMetadata {}
+declare interface ClassMetadata {}
 
-export interface Settings {
+declare interface Settings {
   tierFloors: TierFloors;
 }
 
-export interface TierFloors {
+declare interface TierFloors {
   T1: number;
   T2: number;
   T3: number;
   T4: number;
 }
 
-export interface CombinedDeckData extends DeckData {
+declare interface CombinedDeckData extends DeckData {
   archetype: Archetype | undefined;
 }
 
-export interface PlayerClassIcons {
+declare interface PlayerClassIcons {
   [key: string]: Image;
 }
 
-export interface Tiers {
+declare interface DecksInTiers {
   [key: string]: CombinedDeckData[];
 }
+
+declare type FlattenedTiers = (string | CombinedDeckData)[];

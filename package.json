@@ -2,5 +2,23 @@
   "devDependencies": {
     "@types/scriptable-ios": "^1.6.1",
     "typescript": "^4.3.4"
-  }
+  },
+  "name": "heartstone-meta-scriptable",
+  "version": "1.0.0",
+  "description": "Scriptible app to fetch and show the Hearthstone meta",
+  "main": "",
+  "types": "src/types.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/damongolding/heartstone-meta-scriptable.git"
+  },
+  "author": "Damon Golding",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/damongolding/heartstone-meta-scriptable/issues"
+  },
+  "homepage": "https://github.com/damongolding/heartstone-meta-scriptable#readme"
 }

@@ -18,78 +18,31 @@ const theme = {
     },
     font: {
         widget: {
-            deckName: Font.systemFont(14),
+            deckName: Font.boldSystemFont(14),
             deckWinRate: Font.boldSystemFont(18),
         },
         table: {
-            deckName: Font.systemFont(18),
+            deckName: Font.boldSystemFont(18),
             deckWinRate: Font.boldSystemFont(25),
         },
     },
 };
-/**
- * See if class icons are saved locally, if not grab and save them then return the local version
- * @param playerClasses
- * @returns : [Images]
- */
-async function storeAndRetrieveClassIcons(playerClasses) {
-    const manager = FileManager.local();
-    const localPath = manager.documentsDirectory();
-    let playerClassIcons = {};
-    for await (let playerClass of playerClasses) {
-        playerClass = playerClass.toLowerCase();
-        if (!manager.fileExists(`${localPath}/${playerClass}.png`)) {
-            const classIcon = await getClassImage(playerClass);
-            manager.writeImage(`${localPath}/${playerClass}.png`, classIcon);
-        }
-        const classIconToAdd = manager.readImage(`${localPath}/${playerClass}.png`);
-        playerClassIcons[playerClass] = classIconToAdd;
-    }
-    return playerClassIcons;
+const archetypes = await getJSON("https://hsreplay.net/api/v1/archetypes/?format=json");
+const allDecksData = await getJSON("https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION");
+const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
+const combinedDecks = await combineAllDecks(allDecksData);
+const combinedDecksWithArchetypes = await addArchetypesToDecks(combinedDecks, archetypes);
+const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
+if (config.runsInWidget) {
+    await createWidget();
 }
-/**
- * HSReplay split the decks into class objects. This combines them into 1 array
- * @param allDecks : []
- * @returns : []
- */
-async function combineAllDecks(allDecks) {
-    const allPlayerClasses = Object.keys(allDecks.series.metadata);
-    const reducer = (accumulator, allClassDecks) => {
-        return [
-            ...accumulator,
-            ...Object.values(allDecks.series.data[allClassDecks]),
-        ];
-    };
-    return allPlayerClasses.reduce(reducer, []);
+else if (config.runsInApp) {
+    await createTable();
 }
-/**
- * Combines the decks array and the archetypes array
- * @param allDecks : []
- * @param allArchetypes : []
- * @returns : []
- */
-async function addArchetypesToDecks(allDecks, allArchetypes) {
-    return allDecks
-        .map((deck) => {
-        const finder = (archetype) => {
-            if (archetype.id === deck.archetype_id)
-                return archetype;
-        };
-        return {
-            ...deck,
-            archetype: allArchetypes.find(finder),
-        };
-    })
-        .filter((deck) => deck.archetype);
+else if (config.runsWithSiri) {
+    await createTable();
 }
-/**
- * Sorts deck array by win rate (descending)
- * @param allDecks : []
- * @returns : []
- */
-async function sortDecksByWinRate(allDecks) {
-    return allDecks.sort((a, b) => b.win_rate - a.win_rate);
-}
+Script.complete();
 async function getJSON(url) {
     const req = new Request(url);
     const res = await req.loadJSON();
@@ -105,10 +58,48 @@ async function getClassImage(playerClass) {
     const res = await req.loadImage();
     return res;
 }
-/**
- * Returns a number to limit decks shown within widgets
- * @returns : number
- */
+async function storeAndRetrieveClassIcons(playerClasses) {
+    const manager = FileManager.local();
+    const localPath = manager.documentsDirectory();
+    let playerClassIcons = {};
+    for await (let playerClass of playerClasses) {
+        playerClass = playerClass.toLowerCase();
+        if (!manager.fileExists(`${localPath}/${playerClass}.png`)) {
+            const classIcon = await getClassImage(playerClass);
+            manager.writeImage(`${localPath}/${playerClass}.png`, classIcon);
+        }
+        const classIconToAdd = manager.readImage(`${localPath}/${playerClass}.png`);
+        playerClassIcons[playerClass] = classIconToAdd;
+    }
+    return playerClassIcons;
+}
+async function combineAllDecks(allDecks) {
+    const allPlayerClasses = Object.keys(allDecks.series.metadata);
+    const reducer = (accumulator, allClassDecks) => {
+        return [
+            ...accumulator,
+            ...Object.values(allDecks.series.data[allClassDecks]),
+        ];
+    };
+    return allPlayerClasses.reduce(reducer, []);
+}
+async function addArchetypesToDecks(allDecks, allArchetypes) {
+    return allDecks
+        .map((deck) => {
+        const finder = (archetype) => {
+            if (archetype.id === deck.archetype_id)
+                return archetype;
+        };
+        return {
+            ...deck,
+            archetype: allArchetypes.find(finder),
+        };
+    })
+        .filter((deck) => deck.archetype);
+}
+async function sortDecksByWinRate(allDecks) {
+    return allDecks.sort((a, b) => b.win_rate - a.win_rate);
+}
 function widgetDeckLimit() {
     if (config.widgetFamily === "medium")
         return 3;
@@ -116,11 +107,6 @@ function widgetDeckLimit() {
         return 6;
     return allDecks.length;
 }
-/**
- * Returns what tier the deck is from the win rate
- * @param winRate : number
- * @returns : string
- */
 function tierFromWinRate(winRate) {
     for (const [key, value] of Object.entries(settings.tierFloors)) {
         if (parseInt(winRate) > value)
@@ -142,6 +128,16 @@ async function sortDecksIntoTiers(decks) {
     }
     return tiers;
 }
+async function flattenTiers(array) {
+    let outArray = [];
+    for await (const tier of Object.keys(array)) {
+        outArray.push(tier);
+        for (const deck of Object.values(array[tier])) {
+            outArray.push(deck);
+        }
+    }
+    return outArray;
+}
 function winRateColour(winRate) {
     if (parseInt(winRate) > 50)
         return theme.colours.green;
@@ -151,51 +147,45 @@ function winRateColour(winRate) {
 }
 async function createWidget() {
     const widget = new ListWidget();
-    // 	if small widget just display image
+    widget.backgroundColor = theme.colours.blue;
     if (config.widgetFamily === "small") {
         const HSReplayLogo = await getImage("https://static.hsreplay.net/static/images/logo.58ae9cde1d07.png");
         const smallWidgetImage = widget.addImage(HSReplayLogo);
         smallWidgetImage.centerAlignImage();
         smallWidgetImage.imageSize = new Size(100, 100);
-        widget.backgroundColor = theme.colours.blue;
         Script.setWidget(widget);
         return;
     }
-    // 	loop through decks. widgetDeckLimit() limits rhe amount to deck for widgets
     for await (const [deck, index] of allDecks
         .slice(0, widgetDeckLimit())
         .map((deck, index) => [deck, index])) {
-        // 	deck row
         const widgetRow = widget.addStack();
         widgetRow.spacing = 10;
         widgetRow.centerAlignContent();
-        // 	class image column
         const classImage = widgetRow.addStack();
         classImage.size = new Size(40, 40);
-        classImage.cornerRadius = 20;
-        classImage.backgroundColor = Color.lightGray();
         classImage.backgroundImage = await getClassImage(deck.archetype.player_class_name);
-        // 	deck stats column
         const deckStats = widgetRow.addStack();
         deckStats.size = new Size(250, 50);
         deckStats.layoutVertically();
         const deckName = deckStats.addText(deck.archetype.name);
         const deckRate = deckStats.addText(`${deck.win_rate}% ${tierFromWinRate(deck.win_rate)}`);
         deckName.font = theme.font.widget.deckName;
+        deckName.textColor = Color.white();
         deckRate.font = theme.font.widget.deckWinRate;
         deckRate.textColor = winRateColour(deck.win_rate);
-        // 	no bottom border on last deck/stack
         if (index !== widgetDeckLimit() - 1) {
             const line = widget.addStack();
-            line.backgroundColor = Color.dynamic(theme.colours.grey, theme.colours.white);
+            line.backgroundColor = theme.colours.white;
             line.size = new Size(300, 1);
         }
     }
     Script.setWidget(widget);
 }
-function viewDeck(rowNumber) {
-    rowNumber = rowNumber - 1;
-    Safari.open(`https://hsreplay.net${allDecks[rowNumber].archetype.url}`);
+async function viewDeckOnHsReplay(rowNumber) {
+    const deckTiers = await sortDecksIntoTiers(allDecks);
+    const FlattenedTiers = await flattenTiers(deckTiers);
+    Safari.open(`https://hsreplay.net${FlattenedTiers[rowNumber].archetype.url}`);
 }
 async function createTable() {
     const table = new UITable();
@@ -205,40 +195,28 @@ async function createTable() {
         const tierHeader = new UITableRow();
         tierHeader.isHeader = true;
         tierHeader.backgroundColor = theme.colours.blue;
-        tierHeader.addText(tier.replace("T", "Tier "));
+        const tierHeaderText = tierHeader.addText(tier.replace("T", "Tier "));
+        tierHeaderText.titleColor = Color.white();
+        tierHeaderText.subtitleColor = Color.white();
         table.addRow(tierHeader);
         for await (const deck of decks) {
             const row = new UITableRow();
             row.height = 80;
             row.cellSpacing = 0;
+            row.backgroundColor = Color.white();
             const classImage = classIcons[deck.archetype.player_class_name.toLowerCase()];
             const classImageCell = row.addImage(classImage);
             classImageCell.widthWeight = 20;
             const textCell = row.addText(deck.archetype.name, `${deck.win_rate}%`);
             textCell.widthWeight = 80;
             textCell.titleFont = theme.font.table.deckName;
+            textCell.titleColor = Color.black();
             textCell.subtitleFont = theme.font.table.deckWinRate;
             textCell.subtitleColor = winRateColour(deck.win_rate);
-            // 			row.onSelect = (number) => viewDeck(number);
-            row.onSelect = (number) => console.log(deck.archetype.name);
+            row.dismissOnSelect = false;
+            row.onSelect = (number) => viewDeckOnHsReplay(number);
             table.addRow(row);
         }
     }
     QuickLook.present(table, true);
 }
-// Get raw data
-const archetypes = await getJSON("https://hsreplay.net/api/v1/archetypes/?format=json");
-const allDecksData = await getJSON("https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION");
-const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
-// Assemble data
-const combinedDecks = await combineAllDecks(allDecksData);
-const combinedDecksWithArchetypes = await addArchetypesToDecks(combinedDecks, archetypes);
-const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
-if (config.runsInWidget) {
-    await createWidget();
-}
-else if (config.runsInApp) {
-    await createTable();
-}
-Script.complete();
-export {};

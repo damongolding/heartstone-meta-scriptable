@@ -1,13 +1,3 @@
-import {
-  Settings,
-  Archetype,
-  HsReplayDeckData,
-  CombinedDeckData,
-  DeckData,
-  PlayerClassIcons,
-  Tiers,
-} from "./@types";
-
 const settings: Settings = {
   tierFloors: {
     T1: 55,
@@ -30,15 +20,71 @@ const theme = {
   },
   font: {
     widget: {
-      deckName: Font.systemFont(14),
+      deckName: Font.boldSystemFont(14),
       deckWinRate: Font.boldSystemFont(18),
     },
     table: {
-      deckName: Font.systemFont(18),
+      deckName: Font.boldSystemFont(18),
       deckWinRate: Font.boldSystemFont(25),
     },
   },
 };
+
+// Get raw data
+//@ts-expect-error
+const archetypes: Archetype[] = await getJSON(
+  "https://hsreplay.net/api/v1/archetypes/?format=json"
+);
+//@ts-expect-error
+const allDecksData: HsReplayDeckData = await getJSON(
+  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION"
+);
+//@ts-expect-error
+const classIcons: PlayerClassIcons = await storeAndRetrieveClassIcons(
+  Object.keys(allDecksData.series.metadata)
+);
+
+// Assemble data
+//@ts-expect-error
+const combinedDecks: CombinedDeckData[] = await combineAllDecks(allDecksData);
+
+const combinedDecksWithArchetypes: CombinedDeckData[] =
+  //@ts-expect-error
+  await addArchetypesToDecks(combinedDecks, archetypes);
+//@ts-expect-error
+const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
+
+if (config.runsInWidget) {
+  //@ts-expect-error
+  await createWidget();
+} else if (config.runsInApp) {
+  //@ts-expect-error
+  await createTable();
+} else if (config.runsWithSiri) {
+  //@ts-expect-error
+  await createTable();
+}
+
+Script.complete();
+
+// Getter functions
+async function getJSON(url: string) {
+  const req: Request = new Request(url);
+  const res = await req.loadJSON();
+  return res;
+}
+
+async function getImage(url: string) {
+  const req = new Request(url);
+  const res = await req.loadImage();
+  return res;
+}
+
+async function getClassImage(playerClass: string) {
+  const req = new Request(theme.classImageUrl(playerClass));
+  const res = await req.loadImage();
+  return res;
+}
 
 /**
  * See if class icons are saved locally, if not grab and save them then return the local version
@@ -126,24 +172,6 @@ async function sortDecksByWinRate(allDecks: CombinedDeckData[]) {
   );
 }
 
-async function getJSON(url: string) {
-  const req: Request = new Request(url);
-  const res = await req.loadJSON();
-  return res;
-}
-
-async function getImage(url: string) {
-  const req = new Request(url);
-  const res = await req.loadImage();
-  return res;
-}
-
-async function getClassImage(playerClass: string) {
-  const req = new Request(theme.classImageUrl(playerClass));
-  const res = await req.loadImage();
-  return res;
-}
-
 /**
  * Returns a number to limit decks shown within widgets
  * @returns : number
@@ -166,8 +194,13 @@ function tierFromWinRate(winRate: number | string) {
   return "T4";
 }
 
+/**
+ * Sort decks into tier objects for loop through on table view
+ * @param decks
+ * @returns object sorted into tiers
+ */
 async function sortDecksIntoTiers(decks: CombinedDeckData[]) {
-  let tiers: Tiers = {};
+  let tiers: DecksInTiers = {};
 
   for (const deck of decks) {
     for (const [tier, tierFloor] of Object.entries(settings.tierFloors)) {
@@ -181,6 +214,29 @@ async function sortDecksIntoTiers(decks: CombinedDeckData[]) {
   return tiers;
 }
 
+/**
+ * Flatten tiers so index from the table (onSelect) is equal to the deck
+ * @param array
+ * @returns Flat array
+ */
+async function flattenTiers(array: DecksInTiers): Promise<FlattenedTiers> {
+  let outArray: FlattenedTiers = [];
+
+  for await (const tier of Object.keys(array)) {
+    outArray.push(tier);
+    for (const deck of Object.values(array[tier])) {
+      outArray.push(deck);
+    }
+  }
+
+  return outArray;
+}
+
+/**
+ * What colour should be used for win rate
+ * @param winRate
+ * @returns Colour for text
+ */
 function winRateColour(winRate: number | string) {
   if (parseInt(winRate as string) > 50) return theme.colours.green;
   if (parseInt(winRate as string) > 40) return theme.colours.orange;
@@ -189,6 +245,7 @@ function winRateColour(winRate: number | string) {
 
 async function createWidget() {
   const widget = new ListWidget();
+  widget.backgroundColor = theme.colours.blue;
 
   // 	if small widget just display image
   if (config.widgetFamily === "small") {
@@ -198,7 +255,6 @@ async function createWidget() {
     const smallWidgetImage = widget.addImage(HSReplayLogo);
     smallWidgetImage.centerAlignImage();
     smallWidgetImage.imageSize = new Size(100, 100);
-    widget.backgroundColor = theme.colours.blue;
     Script.setWidget(widget);
     return;
   }
@@ -215,8 +271,6 @@ async function createWidget() {
     // 	class image column
     const classImage = widgetRow.addStack();
     classImage.size = new Size(40, 40);
-    classImage.cornerRadius = 20;
-    classImage.backgroundColor = Color.lightGray();
     classImage.backgroundImage = await getClassImage(
       deck.archetype!.player_class_name
     );
@@ -231,16 +285,14 @@ async function createWidget() {
       `${deck.win_rate}% ${tierFromWinRate(deck.win_rate)}`
     );
     deckName.font = theme.font.widget.deckName;
+    deckName.textColor = Color.white();
     deckRate.font = theme.font.widget.deckWinRate;
     deckRate.textColor = winRateColour(deck.win_rate);
 
     // 	no bottom border on last deck/stack
     if (index !== widgetDeckLimit() - 1) {
       const line = widget.addStack();
-      line.backgroundColor = Color.dynamic(
-        theme.colours.grey,
-        theme.colours.white
-      );
+      line.backgroundColor = theme.colours.white;
       line.size = new Size(300, 1);
     }
   }
@@ -248,9 +300,18 @@ async function createWidget() {
   Script.setWidget(widget);
 }
 
-function viewDeck(rowNumber: number) {
-  rowNumber = rowNumber - 1;
-  Safari.open(`https://hsreplay.net${allDecks[rowNumber].archetype!.url}`);
+/**
+ * Open deck in a browser window
+ * @param rowNumber the index of the selected/tapped row
+ */
+async function viewDeckOnHsReplay(rowNumber: number) {
+  const deckTiers = await sortDecksIntoTiers(allDecks);
+  const FlattenedTiers = await flattenTiers(deckTiers);
+  Safari.open(
+    `https://hsreplay.net${
+      (FlattenedTiers[rowNumber] as CombinedDeckData).archetype!.url
+    }`
+  );
 }
 
 async function createTable() {
@@ -260,16 +321,21 @@ async function createTable() {
   const deckTiers = await sortDecksIntoTiers(allDecks);
 
   for await (const [tier, decks] of Object.entries(deckTiers)) {
+    // Create tier heading
     const tierHeader = new UITableRow();
     tierHeader.isHeader = true;
     tierHeader.backgroundColor = theme.colours.blue;
-    tierHeader.addText(tier.replace("T", "Tier "));
+    const tierHeaderText = tierHeader.addText(tier.replace("T", "Tier "));
+    tierHeaderText.titleColor = Color.white();
+    tierHeaderText.subtitleColor = Color.white();
     table.addRow(tierHeader);
 
+    // Now the decks inside current tier
     for await (const deck of decks) {
       const row = new UITableRow();
       row.height = 80;
       row.cellSpacing = 0;
+      row.backgroundColor = Color.white();
 
       const classImage =
         classIcons[deck.archetype!.player_class_name.toLowerCase()];
@@ -279,41 +345,15 @@ async function createTable() {
       const textCell = row.addText(deck.archetype!.name, `${deck.win_rate}%`);
       textCell.widthWeight = 80;
       textCell.titleFont = theme.font.table.deckName;
+      textCell.titleColor = Color.black();
       textCell.subtitleFont = theme.font.table.deckWinRate;
       textCell.subtitleColor = winRateColour(deck.win_rate);
 
-      // 			row.onSelect = (number) => viewDeck(number);
-
-      row.onSelect = (number) => console.log(deck.archetype!.name);
+      row.dismissOnSelect = false;
+      row.onSelect = (number) => viewDeckOnHsReplay(number);
 
       table.addRow(row);
     }
   }
   QuickLook.present(table, true);
 }
-
-// Get raw data
-const archetypes: Archetype[] = await getJSON(
-  "https://hsreplay.net/api/v1/archetypes/?format=json"
-);
-const allDecksData: HsReplayDeckData = await getJSON(
-  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION"
-);
-
-const classIcons: PlayerClassIcons = await storeAndRetrieveClassIcons(
-  Object.keys(allDecksData.series.metadata)
-);
-
-// Assemble data
-const combinedDecks: CombinedDeckData[] = await combineAllDecks(allDecksData);
-const combinedDecksWithArchetypes: CombinedDeckData[] =
-  await addArchetypesToDecks(combinedDecks, archetypes);
-const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
-
-if (config.runsInWidget) {
-  await createWidget();
-} else if (config.runsInApp) {
-  await createTable();
-}
-
-Script.complete();
