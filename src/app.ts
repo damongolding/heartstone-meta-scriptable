@@ -101,7 +101,7 @@ if (config.runsInWidget) {
   await createTable(allDecks, allPastMetaDecks);
 } else if (config.runsWithSiri) {
   //@ts-expect-error
-  await createTable();
+  await createTable(allDecks, allPastMetaDecks);
 }
 
 Script.complete();
@@ -125,6 +125,11 @@ async function getClassImage(playerClass: string): Promise<Image> {
   return res;
 }
 
+/**
+ * Checks to see if our saved files of out of date = the meta has changed
+ * @param allDecksData
+ * @returns
+ */
 async function checkIfMetaHasShifted(
   allDecksData: HsReplayDeckData
 ): Promise<boolean> {
