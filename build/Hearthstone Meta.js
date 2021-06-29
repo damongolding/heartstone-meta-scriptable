@@ -65,9 +65,6 @@ const allPastMetaDecksData = await storeAndRetrievePastMeta(allDecksData, "pastm
 const combinedPastMetaDecks = await combineAllDecks(allPastMetaDecksData);
 const combinedPastMetaDecksWithArchetypes = await addArchetypesToDecks(combinedPastMetaDecks, archetypes);
 const allPastMetaDecks = await sortDecksByWinRate(combinedPastMetaDecksWithArchetypes);
-await createWidget(allDecks, allPastMetaDecks, true);
-// @ts-expect-error
-return Script.complete();
 if (config.runsInWidget) {
     await createWidget(allDecks, allPastMetaDecks);
 }
@@ -272,6 +269,38 @@ async function viewDeckOnHsReplay(rowNumber) {
     Safari.open(`https://hsreplay.net${FlattenedTiers[rowNumber].archetype.url}`);
 }
 /**
+ * Check if deck has moved in the meta, return data if so
+ * @param allDecks
+ * @param allPastMetaDecks
+ * @param archetypeID
+ * @returns {samePosition:boolean, arrowIcon: string | null, deckPositionShifted: number | null, directionColour: Color}
+ */
+async function hasDeckShiftedPosition(allDecks, allPastMetaDecks, archetypeID) {
+    const deckTiers = await sortDecksIntoTiers(allDecks);
+    const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
+    const flattenedDecks = await flattenTiers(deckTiers);
+    const flattenedPastDecks = await flattenTiers(pastDeckTiers);
+    const currentTierPosition = flattenedDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
+    const pastTierPosition = flattenedPastDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
+    let arrowIcon = null;
+    let deckPositionShifted = null;
+    if (currentTierPosition !== pastTierPosition) {
+        arrowIcon =
+            pastTierPosition > currentTierPosition
+                ? theme.arrowIcons.up
+                : theme.arrowIcons.down;
+        deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
+    }
+    return {
+        samePosition: currentTierPosition === pastTierPosition ? true : false,
+        arrowIcon: arrowIcon,
+        deckPositionShifted: deckPositionShifted,
+        directionColour: pastTierPosition > currentTierPosition
+            ? theme.colours.green
+            : theme.colours.red,
+    };
+}
+/**
  * Build widget
  * @returns void
  */
@@ -322,12 +351,9 @@ async function createWidget(allDecks, allPastMetaDecks, debug = false) {
         // Deck position shift
         if (!samePosition) {
             const deckPosition = widgetRow.addStack();
-            deckPosition.size = new Size(40, 20);
+            deckPosition.size = new Size(20, 20);
             const getIcon = await getImage(arrowIcon);
-            const positionArrow = deckPosition.addImage(getIcon);
-            const deckPositionShift = deckPosition.addText(deckPositionShifted.toString());
-            deckPositionShift.font = theme.font.widget.deckName;
-            deckPositionShift.textColor = directionColour;
+            deckPosition.addImage(getIcon);
         }
         // 	no bottom border on last deck/stack
         if (index !== widgetDeckLimit() - 1) {
@@ -336,36 +362,7 @@ async function createWidget(allDecks, allPastMetaDecks, debug = false) {
             line.size = new Size(300, 1);
         }
     }
-    if (debug)
-        return widget.presentLarge();
     Script.setWidget(widget);
-}
-async function hasDeckShiftedPosition(allDecks, allPastMetaDecks, archetypeID) {
-    const deckTiers = await sortDecksIntoTiers(allDecks);
-    const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
-    const flattenedDecks = await flattenTiers(deckTiers);
-    const flattenedPastDecks = await flattenTiers(pastDeckTiers);
-    let currentTierPosition = flattenedDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
-    let pastTierPosition = flattenedPastDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
-    currentTierPosition = Math.floor(Math.random() * 9) + 0;
-    pastTierPosition = Math.floor(Math.random() * 9) + 0;
-    let arrowIcon = null;
-    let deckPositionShifted = null;
-    if (currentTierPosition !== pastTierPosition) {
-        arrowIcon =
-            pastTierPosition > currentTierPosition
-                ? theme.arrowIcons.up
-                : theme.arrowIcons.down;
-        deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
-    }
-    return {
-        samePosition: currentTierPosition === pastTierPosition ? true : false,
-        arrowIcon: arrowIcon,
-        deckPositionShifted: deckPositionShifted,
-        directionColour: pastTierPosition > currentTierPosition
-            ? theme.colours.green
-            : theme.colours.red,
-    };
 }
 /**
  * Create table view for in app

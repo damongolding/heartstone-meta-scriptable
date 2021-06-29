@@ -92,10 +92,6 @@ const allPastMetaDecks = await sortDecksByWinRate(
   combinedPastMetaDecksWithArchetypes
 );
 
-await createWidget(allDecks, allPastMetaDecks, true);
-// @ts-expect-error
-return Script.complete();
-
 if (config.runsInWidget) {
   await createWidget(allDecks, allPastMetaDecks);
 } else if (config.runsInApp) {
@@ -382,15 +378,12 @@ async function hasDeckShiftedPosition(
   const flattenedDecks = await flattenTiers(deckTiers);
   const flattenedPastDecks = await flattenTiers(pastDeckTiers);
 
-  let currentTierPosition = flattenedDecks.findIndex(
+  const currentTierPosition = flattenedDecks.findIndex(
     (savedDeck) => (savedDeck as CombinedDeckData).archetype_id === archetypeID
   );
-  let pastTierPosition = flattenedPastDecks.findIndex(
+  const pastTierPosition = flattenedPastDecks.findIndex(
     (savedDeck) => (savedDeck as CombinedDeckData).archetype_id === archetypeID
   );
-
-  currentTierPosition = Math.floor(Math.random() * 9) + 0;
-  pastTierPosition = Math.floor(Math.random() * 9) + 0;
 
   let arrowIcon: string | null = null;
   let deckPositionShifted: number | null = null;
@@ -490,7 +483,7 @@ async function createWidget(
     // Deck position shift
     if (!samePosition) {
       const deckPosition = widgetRow.addStack();
-      deckPosition.size = new Size(40, 20);
+      deckPosition.size = new Size(20, 20);
       const getIcon = await getImage(arrowIcon as string);
       deckPosition.addImage(getIcon);
     }
@@ -503,7 +496,6 @@ async function createWidget(
     }
   }
 
-  if (debug) return widget.presentLarge();
   Script.setWidget(widget);
 }
 
