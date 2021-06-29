@@ -413,15 +413,8 @@ async function hasDeckShiftedPosition(
  */
 async function createWidget(
   allDecks: CombinedDeckData[],
-  allPastMetaDecks: CombinedDeckData[],
-  debug: boolean = false
+  allPastMetaDecks: CombinedDeckData[]
 ) {
-  const deckTiers = await sortDecksIntoTiers(allDecks);
-  const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
-
-  const flattenedDecks = await flattenTiers(deckTiers);
-  const flattenedPastDecks = await flattenTiers(pastDeckTiers);
-
   const widget = new ListWidget();
   const skinBackgroundColour: SkinBackgroundColour = {
     classic: theme.colours.blue,
@@ -446,12 +439,11 @@ async function createWidget(
     .slice(0, widgetDeckLimit())
     .map((deck, index): [CombinedDeckData, number] => [deck, index])) {
     // Check to see if deck has moved position
-    const { samePosition, arrowIcon, deckPositionShifted, directionColour } =
-      await hasDeckShiftedPosition(
-        allDecks,
-        allPastMetaDecks,
-        deck.archetype_id
-      );
+    const { samePosition, arrowIcon } = await hasDeckShiftedPosition(
+      allDecks,
+      allPastMetaDecks,
+      deck.archetype_id
+    );
 
     // 	deck row
     const widgetRow = widget.addStack();
