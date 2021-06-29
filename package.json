@@ -9,7 +9,8 @@
   "main": "",
   "types": "src/types.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && replace-in-file --configFile=replace-config.js && cp 'build/Hearthstone Meta.js' '../../Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents/Hearthstone Meta.js'"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/damongolding/heartstone-meta-scriptable/issues"
   },
-  "homepage": "https://github.com/damongolding/heartstone-meta-scriptable#readme"
+  "homepage": "https://github.com/damongolding/heartstone-meta-scriptable#readme",
+  "dependencies": {
+    "replace-in-file": "^6.2.0"
+  }
 }
