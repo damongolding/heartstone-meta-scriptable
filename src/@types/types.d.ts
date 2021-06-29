@@ -53,6 +53,7 @@ declare interface Metadata {
 declare interface ClassMetadata {}
 
 declare interface Settings {
+  assetsBaseUrl: string;
   tierFloors: TierFloors;
 }
 

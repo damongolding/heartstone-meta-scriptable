@@ -2,6 +2,7 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: blue; icon-glyph: haykal;
 const settings: Settings = {
+  assetsBaseUrl: "https://damongolding.github.io/heartstone-meta-scriptable",
   tierFloors: {
     T1: 55,
     T2: 50,
@@ -12,7 +13,7 @@ const settings: Settings = {
 
 const theme = {
   classImageUrl: (playerClass: string) =>
-    `https://static.hsreplay.net/static/images/64x/class-icons/${playerClass.toLowerCase()}.png`,
+    `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}.png`,
   colours: {
     white: new Color("#fff", 0.1),
     grey: new Color("#eee", 1),
@@ -32,8 +33,8 @@ const theme = {
     },
   },
   arrowIcons: {
-    up: "https://img.icons8.com/ios-glyphs/90/22A117/up--v1.png",
-    down: "https://img.icons8.com/ios-glyphs/90/FF5050/down--v1.png",
+    up: `${settings.assetsBaseUrl}/images/up.png`,
+    down: `${settings.assetsBaseUrl}/images/down.png`,
   },
 };
 
