@@ -10,11 +10,16 @@ const settings = {
         T4: 0,
     },
 };
+/**
+ * skin can either be "classic" or "colour"
+ */
 const theme = {
-    classImageUrl: (playerClass) => `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}.png`,
+    skin: "colour",
+    classImageUrl: (playerClass) => `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}-${theme.skin}.png`,
     colours: {
         white: new Color("#fff", 0.1),
         grey: new Color("#eee", 1),
+        darkGrey: new Color("#333", 1),
         green: new Color("#22A117", 1),
         orange: new Color("#F48100", 1),
         red: new Color("#FF5050", 1),
@@ -60,8 +65,11 @@ const allPastMetaDecksData = await storeAndRetrievePastMeta(allDecksData, "pastm
 const combinedPastMetaDecks = await combineAllDecks(allPastMetaDecksData);
 const combinedPastMetaDecksWithArchetypes = await addArchetypesToDecks(combinedPastMetaDecks, archetypes);
 const allPastMetaDecks = await sortDecksByWinRate(combinedPastMetaDecksWithArchetypes);
+await createWidget(allDecks, allPastMetaDecks, true);
+// @ts-expect-error
+return Script.complete();
 if (config.runsInWidget) {
-    await createWidget();
+    await createWidget(allDecks, allPastMetaDecks);
 }
 else if (config.runsInApp) {
     await createTable(allDecks, allPastMetaDecks);
@@ -132,11 +140,11 @@ async function storeAndRetrieveClassIcons(playerClasses) {
     let playerClassIcons = {};
     for await (let playerClass of playerClasses) {
         playerClass = playerClass.toLowerCase();
-        if (!manager.fileExists(`${localPath}/${playerClass}.png`)) {
+        if (!manager.fileExists(`${localPath}/${playerClass}-${theme.skin}.png`)) {
             const classIcon = await getClassImage(playerClass);
-            manager.writeImage(`${localPath}/${playerClass}.png`, classIcon);
+            manager.writeImage(`${localPath}/${playerClass}-${theme.skin}.png`, classIcon);
         }
-        const classIconToAdd = manager.readImage(`${localPath}/${playerClass}.png`);
+        const classIconToAdd = manager.readImage(`${localPath}/${playerClass}-${theme.skin}.png`);
         playerClassIcons[playerClass] = classIconToAdd;
     }
     return playerClassIcons;
@@ -267,9 +275,17 @@ async function viewDeckOnHsReplay(rowNumber) {
  * Build widget
  * @returns void
  */
-async function createWidget() {
+async function createWidget(allDecks, allPastMetaDecks, debug = false) {
+    const deckTiers = await sortDecksIntoTiers(allDecks);
+    const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
+    const flattenedDecks = await flattenTiers(deckTiers);
+    const flattenedPastDecks = await flattenTiers(pastDeckTiers);
     const widget = new ListWidget();
-    widget.backgroundColor = theme.colours.blue;
+    const skinBackgroundColour = {
+        classic: theme.colours.blue,
+        colour: theme.colours.darkGrey,
+    };
+    widget.backgroundColor = skinBackgroundColour[theme.skin];
     // 	if small widget just display image
     if (config.widgetFamily === "small") {
         const HSReplayLogo = await getImage("https://static.hsreplay.net/static/images/logo.58ae9cde1d07.png");
@@ -283,6 +299,8 @@ async function createWidget() {
     for await (const [deck, index] of allDecks
         .slice(0, widgetDeckLimit())
         .map((deck, index) => [deck, index])) {
+        // Check to see if deck has moved position
+        const { samePosition, arrowIcon, deckPositionShifted, directionColour } = await hasDeckShiftedPosition(allDecks, allPastMetaDecks, deck.archetype_id);
         // 	deck row
         const widgetRow = widget.addStack();
         widgetRow.spacing = 10;
@@ -293,7 +311,7 @@ async function createWidget() {
         classImage.backgroundImage = await getClassImage(deck.archetype.player_class_name);
         // 	deck stats column
         const deckStats = widgetRow.addStack();
-        deckStats.size = new Size(250, 50);
+        deckStats.size = new Size(210, 50);
         deckStats.layoutVertically();
         const deckName = deckStats.addText(deck.archetype.name);
         const deckRate = deckStats.addText(`${deck.win_rate}% ${tierFromWinRate(deck.win_rate)}`);
@@ -301,6 +319,16 @@ async function createWidget() {
         deckName.textColor = Color.white();
         deckRate.font = theme.font.widget.deckWinRate;
         deckRate.textColor = winRateColour(deck.win_rate);
+        // Deck position shift
+        if (!samePosition) {
+            const deckPosition = widgetRow.addStack();
+            deckPosition.size = new Size(40, 20);
+            const getIcon = await getImage(arrowIcon);
+            const positionArrow = deckPosition.addImage(getIcon);
+            const deckPositionShift = deckPosition.addText(deckPositionShifted.toString());
+            deckPositionShift.font = theme.font.widget.deckName;
+            deckPositionShift.textColor = directionColour;
+        }
         // 	no bottom border on last deck/stack
         if (index !== widgetDeckLimit() - 1) {
             const line = widget.addStack();
@@ -308,7 +336,36 @@ async function createWidget() {
             line.size = new Size(300, 1);
         }
     }
+    if (debug)
+        return widget.presentLarge();
     Script.setWidget(widget);
+}
+async function hasDeckShiftedPosition(allDecks, allPastMetaDecks, archetypeID) {
+    const deckTiers = await sortDecksIntoTiers(allDecks);
+    const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
+    const flattenedDecks = await flattenTiers(deckTiers);
+    const flattenedPastDecks = await flattenTiers(pastDeckTiers);
+    let currentTierPosition = flattenedDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
+    let pastTierPosition = flattenedPastDecks.findIndex((savedDeck) => savedDeck.archetype_id === archetypeID);
+    currentTierPosition = Math.floor(Math.random() * 9) + 0;
+    pastTierPosition = Math.floor(Math.random() * 9) + 0;
+    let arrowIcon = null;
+    let deckPositionShifted = null;
+    if (currentTierPosition !== pastTierPosition) {
+        arrowIcon =
+            pastTierPosition > currentTierPosition
+                ? theme.arrowIcons.up
+                : theme.arrowIcons.down;
+        deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
+    }
+    return {
+        samePosition: currentTierPosition === pastTierPosition ? true : false,
+        arrowIcon: arrowIcon,
+        deckPositionShifted: deckPositionShifted,
+        directionColour: pastTierPosition > currentTierPosition
+            ? theme.colours.green
+            : theme.colours.red,
+    };
 }
 /**
  * Create table view for in app
@@ -319,9 +376,6 @@ async function createTable(allDecks, allPastMetaDecks) {
     const table = new UITable();
     table.showSeparators = true;
     const deckTiers = await sortDecksIntoTiers(allDecks);
-    const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
-    const flattenedDecks = await flattenTiers(deckTiers);
-    const flattenedPastDecks = await flattenTiers(pastDeckTiers);
     for await (const [tier, decks] of Object.entries(deckTiers)) {
         // Create tier heading
         const tierHeader = new UITableRow();
@@ -333,19 +387,8 @@ async function createTable(allDecks, allPastMetaDecks) {
         table.addRow(tierHeader);
         // Now the decks inside current tier
         for await (const deck of decks) {
-            const currentTierPosition = flattenedDecks.findIndex((savedDeck) => savedDeck.archetype_id ===
-                deck.archetype_id);
-            const pastTierPosition = flattenedPastDecks.findIndex((savedDeck) => savedDeck.archetype_id ===
-                deck.archetype_id);
-            let arrowIcon = null;
-            let deckPositionShifted = null;
-            if (currentTierPosition !== pastTierPosition) {
-                arrowIcon =
-                    pastTierPosition > currentTierPosition
-                        ? theme.arrowIcons.up
-                        : theme.arrowIcons.down;
-                deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
-            }
+            // Check to see if deck has moved position
+            const { samePosition, arrowIcon, deckPositionShifted, directionColour } = await hasDeckShiftedPosition(allDecks, allPastMetaDecks, deck.archetype_id);
             const row = new UITableRow();
             row.height = 80;
             row.cellSpacing = 0;
@@ -355,23 +398,21 @@ async function createTable(allDecks, allPastMetaDecks) {
             classImageCell.widthWeight = 60;
             const textCell = row.addText(`   ${deck.archetype.name}`, `  ${deck.win_rate}%`);
             // determine size of deckdata cell width
-            textCell.widthWeight = Device.screenSize().width - (arrowIcon ? 105 : 60);
+            textCell.widthWeight =
+                Device.screenSize().width - (samePosition ? 105 : 60);
             textCell.titleFont = theme.font.table.deckName;
             textCell.titleColor = Color.black();
             textCell.subtitleFont = theme.font.table.deckWinRate;
             textCell.subtitleColor = winRateColour(deck.win_rate);
             // Deck has moved position so show arrow
-            if (arrowIcon && deckPositionShifted) {
+            if (!samePosition) {
                 const arrowCell = row.addImageAtURL(arrowIcon);
                 arrowCell.widthWeight = 25;
                 const deckPositionShift = row.addText(deckPositionShifted.toString());
                 deckPositionShift.widthWeight = 20;
                 const deckPositionShiftFontSize = deckPositionShifted > 9 ? 14 : 25;
                 deckPositionShift.titleFont = Font.boldSystemFont(deckPositionShiftFontSize);
-                deckPositionShift.titleColor =
-                    pastTierPosition > currentTierPosition
-                        ? theme.colours.green
-                        : theme.colours.red;
+                deckPositionShift.titleColor = directionColour;
             }
             row.dismissOnSelect = false;
             row.onSelect = (number) => viewDeckOnHsReplay(number);

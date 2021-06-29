@@ -77,3 +77,5 @@ declare interface DecksInTiers {
 }
 
 declare type FlattenedTiers = (string | CombinedDeckData)[];
+
+declare type SkinBackgroundColour = { [key: string]: Color };

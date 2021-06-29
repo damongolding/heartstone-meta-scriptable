@@ -11,12 +11,19 @@ const settings: Settings = {
   },
 };
 
+/**
+ * skin can either be "classic" or "colour"
+ */
 const theme = {
+  skin: "colour",
   classImageUrl: (playerClass: string) =>
-    `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}.png`,
+    `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}-${
+      theme.skin
+    }.png`,
   colours: {
     white: new Color("#fff", 0.1),
     grey: new Color("#eee", 1),
+    darkGrey: new Color("#333", 1),
     green: new Color("#22A117", 1),
     orange: new Color("#F48100", 1),
     red: new Color("#FF5050", 1),
@@ -85,8 +92,12 @@ const allPastMetaDecks = await sortDecksByWinRate(
   combinedPastMetaDecksWithArchetypes
 );
 
+await createWidget(allDecks, allPastMetaDecks, true);
+// @ts-expect-error
+return Script.complete();
+
 if (config.runsInWidget) {
-  await createWidget();
+  await createWidget(allDecks, allPastMetaDecks);
 } else if (config.runsInApp) {
   await createTable(allDecks, allPastMetaDecks);
 } else if (config.runsWithSiri) {
@@ -187,13 +198,16 @@ async function storeAndRetrieveClassIcons(
   for await (let playerClass of playerClasses) {
     playerClass = playerClass.toLowerCase();
 
-    if (!manager.fileExists(`${localPath}/${playerClass}.png`)) {
+    if (!manager.fileExists(`${localPath}/${playerClass}-${theme.skin}.png`)) {
       const classIcon = await getClassImage(playerClass);
-      manager.writeImage(`${localPath}/${playerClass}.png`, classIcon);
+      manager.writeImage(
+        `${localPath}/${playerClass}-${theme.skin}.png`,
+        classIcon
+      );
     }
 
     const classIconToAdd: Image = manager.readImage(
-      `${localPath}/${playerClass}.png`
+      `${localPath}/${playerClass}-${theme.skin}.png`
     );
     playerClassIcons[playerClass] = classIconToAdd;
   }
@@ -351,12 +365,76 @@ async function viewDeckOnHsReplay(rowNumber: number) {
 }
 
 /**
+ * Check if deck has moved in the meta, return data if so
+ * @param allDecks
+ * @param allPastMetaDecks
+ * @param archetypeID
+ * @returns {samePosition:boolean, arrowIcon: string | null, deckPositionShifted: number | null, directionColour: Color}
+ */
+async function hasDeckShiftedPosition(
+  allDecks: CombinedDeckData[],
+  allPastMetaDecks: CombinedDeckData[],
+  archetypeID: number
+) {
+  const deckTiers = await sortDecksIntoTiers(allDecks);
+  const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
+
+  const flattenedDecks = await flattenTiers(deckTiers);
+  const flattenedPastDecks = await flattenTiers(pastDeckTiers);
+
+  let currentTierPosition = flattenedDecks.findIndex(
+    (savedDeck) => (savedDeck as CombinedDeckData).archetype_id === archetypeID
+  );
+  let pastTierPosition = flattenedPastDecks.findIndex(
+    (savedDeck) => (savedDeck as CombinedDeckData).archetype_id === archetypeID
+  );
+
+  currentTierPosition = Math.floor(Math.random() * 9) + 0;
+  pastTierPosition = Math.floor(Math.random() * 9) + 0;
+
+  let arrowIcon: string | null = null;
+  let deckPositionShifted: number | null = null;
+
+  if (currentTierPosition !== pastTierPosition) {
+    arrowIcon =
+      pastTierPosition > currentTierPosition
+        ? theme.arrowIcons.up
+        : theme.arrowIcons.down;
+    deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
+  }
+
+  return {
+    samePosition: currentTierPosition === pastTierPosition ? true : false,
+    arrowIcon: arrowIcon,
+    deckPositionShifted: deckPositionShifted,
+    directionColour:
+      pastTierPosition > currentTierPosition
+        ? theme.colours.green
+        : theme.colours.red,
+  };
+}
+
+/**
  * Build widget
  * @returns void
  */
-async function createWidget() {
+async function createWidget(
+  allDecks: CombinedDeckData[],
+  allPastMetaDecks: CombinedDeckData[],
+  debug: boolean = false
+) {
+  const deckTiers = await sortDecksIntoTiers(allDecks);
+  const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
+
+  const flattenedDecks = await flattenTiers(deckTiers);
+  const flattenedPastDecks = await flattenTiers(pastDeckTiers);
+
   const widget = new ListWidget();
-  widget.backgroundColor = theme.colours.blue;
+  const skinBackgroundColour: SkinBackgroundColour = {
+    classic: theme.colours.blue,
+    colour: theme.colours.darkGrey,
+  };
+  widget.backgroundColor = skinBackgroundColour[theme.skin];
 
   // 	if small widget just display image
   if (config.widgetFamily === "small") {
@@ -374,6 +452,14 @@ async function createWidget() {
   for await (const [deck, index] of allDecks
     .slice(0, widgetDeckLimit())
     .map((deck, index): [CombinedDeckData, number] => [deck, index])) {
+    // Check to see if deck has moved position
+    const { samePosition, arrowIcon, deckPositionShifted, directionColour } =
+      await hasDeckShiftedPosition(
+        allDecks,
+        allPastMetaDecks,
+        deck.archetype_id
+      );
+
     // 	deck row
     const widgetRow = widget.addStack();
     widgetRow.spacing = 10;
@@ -388,17 +474,26 @@ async function createWidget() {
 
     // 	deck stats column
     const deckStats = widgetRow.addStack();
-    deckStats.size = new Size(250, 50);
+    deckStats.size = new Size(210, 50);
     deckStats.layoutVertically();
 
     const deckName = deckStats.addText(deck.archetype!.name);
     const deckRate = deckStats.addText(
       `${deck.win_rate}% ${tierFromWinRate(deck.win_rate)}`
     );
+
     deckName.font = theme.font.widget.deckName;
     deckName.textColor = Color.white();
     deckRate.font = theme.font.widget.deckWinRate;
     deckRate.textColor = winRateColour(deck.win_rate);
+
+    // Deck position shift
+    if (!samePosition) {
+      const deckPosition = widgetRow.addStack();
+      deckPosition.size = new Size(40, 20);
+      const getIcon = await getImage(arrowIcon as string);
+      deckPosition.addImage(getIcon);
+    }
 
     // 	no bottom border on last deck/stack
     if (index !== widgetDeckLimit() - 1) {
@@ -408,6 +503,7 @@ async function createWidget() {
     }
   }
 
+  if (debug) return widget.presentLarge();
   Script.setWidget(widget);
 }
 
@@ -424,10 +520,6 @@ async function createTable(
   table.showSeparators = true;
 
   const deckTiers = await sortDecksIntoTiers(allDecks);
-  const pastDeckTiers = await sortDecksIntoTiers(allPastMetaDecks);
-
-  const flattenedDecks = await flattenTiers(deckTiers);
-  const flattenedPastDecks = await flattenTiers(pastDeckTiers);
 
   for await (const [tier, decks] of Object.entries(deckTiers)) {
     // Create tier heading
@@ -441,27 +533,13 @@ async function createTable(
 
     // Now the decks inside current tier
     for await (const deck of decks) {
-      const currentTierPosition = flattenedDecks.findIndex(
-        (savedDeck) =>
-          (savedDeck as CombinedDeckData).archetype_id ===
-          (deck as CombinedDeckData).archetype_id
-      );
-      const pastTierPosition = flattenedPastDecks.findIndex(
-        (savedDeck) =>
-          (savedDeck as CombinedDeckData).archetype_id ===
-          (deck as CombinedDeckData).archetype_id
-      );
-
-      let arrowIcon: string | null = null;
-      let deckPositionShifted: number | null = null;
-
-      if (currentTierPosition !== pastTierPosition) {
-        arrowIcon =
-          pastTierPosition > currentTierPosition
-            ? theme.arrowIcons.up
-            : theme.arrowIcons.down;
-        deckPositionShifted = Math.abs(pastTierPosition - currentTierPosition);
-      }
+      // Check to see if deck has moved position
+      const { samePosition, arrowIcon, deckPositionShifted, directionColour } =
+        await hasDeckShiftedPosition(
+          allDecks,
+          allPastMetaDecks,
+          deck.archetype_id
+        );
 
       const row = new UITableRow();
       row.height = 80;
@@ -478,14 +556,15 @@ async function createTable(
         `  ${deck.win_rate}%`
       );
       // determine size of deckdata cell width
-      textCell.widthWeight = Device.screenSize().width - (arrowIcon ? 105 : 60);
+      textCell.widthWeight =
+        Device.screenSize().width - (samePosition ? 105 : 60);
       textCell.titleFont = theme.font.table.deckName;
       textCell.titleColor = Color.black();
       textCell.subtitleFont = theme.font.table.deckWinRate;
       textCell.subtitleColor = winRateColour(deck.win_rate);
 
       // Deck has moved position so show arrow
-      if (arrowIcon && deckPositionShifted) {
+      if (!samePosition) {
         const arrowCell = row.addImageAtURL(arrowIcon as string);
         arrowCell.widthWeight = 25;
         const deckPositionShift = row.addText(
@@ -493,14 +572,11 @@ async function createTable(
         );
         deckPositionShift.widthWeight = 20;
         const deckPositionShiftFontSize: number =
-          deckPositionShifted > 9 ? 14 : 25;
+          (deckPositionShifted as number) > 9 ? 14 : 25;
         deckPositionShift.titleFont = Font.boldSystemFont(
           deckPositionShiftFontSize
         );
-        deckPositionShift.titleColor =
-          pastTierPosition > currentTierPosition
-            ? theme.colours.green
-            : theme.colours.red;
+        deckPositionShift.titleColor = directionColour;
       }
 
       row.dismissOnSelect = false;
