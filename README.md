@@ -1,4 +1,4 @@
-![Github banner](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/github.png?raw=true)
+![Github banner](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/Github.png?raw=true)
 
 # Hearthstone Meta widget/app for [Scriptable](https://scriptable.app/)
 
