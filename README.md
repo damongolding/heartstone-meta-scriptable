@@ -1,4 +1,4 @@
-![Github banner](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/github.png?raw=true)
+![Github banner](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/Github.png?raw=true)
 
 # Hearthstone Meta widget/app for [Scriptable](https://scriptable.app/)
 
@@ -8,9 +8,16 @@ Can be run directly in app, as a widget (medium and large) or as a shortcut/siri
 
 Either a up or down arrow indicates if a deck has changed it power ranking/changes.
 
-Tapping on the deck while in app view will link you to the HSReplay page for the deck :)
+Tapping on the deck while in app view will link you to the HSReplay page for the deck 😀
 
-## Themes
+## New to Scriptable?
+
+1. First download the app from the [IOS store here](https://apps.apple.com/us/app/scriptable/id1405459188?uo=4).
+2. Create a new Script using the + button in the top right.
+3. Copy pasta the Script in [/build/Hearthstone Meta.js](https://raw.githubusercontent.com/damongolding/heartstone-meta-scriptable/main/build/Hearthstone%20Meta.js) to your new Script.
+4. To create a widget go your homescreen, enter edit mode (long press) search "Scriptable" and choose which size widget you'd like. Then chose the script from the widget settings 👍 .
+
+## Themes/skins
 
 ### Colour
 
