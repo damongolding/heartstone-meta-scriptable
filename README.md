@@ -1,3 +1,5 @@
+![Github banner](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/github.png?raw=true)
+
 # Hearthstone Meta widget/app for [Scriptable](https://scriptable.app/)
 
 A script for the IOS [Scriptable](https://scriptable.app/) app which displays the current Hearthstone meta from [HSReplay.net](https://hsreplay.net/).
