@@ -14,18 +14,18 @@ Tapping on the deck while in app view will link you to the HSReplay page for the
 
 #### Colour in app view
 
-![In app view](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-app.jpg?raw=true)
+![In app view](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-app.png?raw=true)
 
 #### Widget view
 
-![Colour theme widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-widget.jpg?raw=true)
+![Colour theme widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-widget.png?raw=true)
 
 ### Classic
 
 #### Classic in app view
 
-![Classic with position change](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/classic-app.jpg?raw=true)
+![Classic with position change](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/classic-app.png?raw=true)
 
 #### Widget view
 
-![Classic widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/classic-widget.jpg?raw=true)
+![Classic widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/classic-widget.png?raw=true)
