@@ -365,7 +365,7 @@ async function viewDeckOnHsReplay(rowNumber: number) {
  * @param allDecks
  * @param allPastMetaDecks
  * @param archetypeID
- * @returns {samePosition:boolean, arrowIcon: string | null, deckPositionShifted: number | null, directionColour: Color}
+ * @returns {isNewDeck: boolean, deckAtSamePosition:boolean, arrowIcon: string | null, deckPositionShifted: number | null, directionColour: Color}
  */
 async function hasDeckShiftedPosition(
   allDecks: CombinedDeckData[],
@@ -397,7 +397,8 @@ async function hasDeckShiftedPosition(
   }
 
   return {
-    samePosition: currentTierPosition === pastTierPosition ? true : false,
+    isNewDeck: pastTierPosition < 0 ? true : false,
+    deckAtSamePosition: currentTierPosition === pastTierPosition ? true : false,
     arrowIcon: arrowIcon,
     deckPositionShifted: deckPositionShifted,
     directionColour:
@@ -439,11 +440,12 @@ async function createWidget(
     .slice(0, widgetDeckLimit())
     .map((deck, index): [CombinedDeckData, number] => [deck, index])) {
     // Check to see if deck has moved position
-    const { samePosition, arrowIcon } = await hasDeckShiftedPosition(
-      allDecks,
-      allPastMetaDecks,
-      deck.archetype_id
-    );
+    const { isNewDeck, deckAtSamePosition, arrowIcon } =
+      await hasDeckShiftedPosition(
+        allDecks,
+        allPastMetaDecks,
+        deck.archetype_id
+      );
 
     // 	deck row
     const widgetRow = widget.addStack();
@@ -472,8 +474,8 @@ async function createWidget(
     deckRate.font = theme.font.widget.deckWinRate;
     deckRate.textColor = winRateColour(deck.win_rate);
 
-    // Deck position shift
-    if (!samePosition) {
+    // Deck position shift and NOT a new deck (wasn't there last time)
+    if (!deckAtSamePosition && !isNewDeck) {
       const deckPosition = widgetRow.addStack();
       deckPosition.size = new Size(20, 20);
       const getIcon = await getImage(arrowIcon as string);
@@ -518,12 +520,17 @@ async function createTable(
     // Now the decks inside current tier
     for await (const deck of decks) {
       // Check to see if deck has moved position
-      const { samePosition, arrowIcon, deckPositionShifted, directionColour } =
-        await hasDeckShiftedPosition(
-          allDecks,
-          allPastMetaDecks,
-          deck.archetype_id
-        );
+      const {
+        isNewDeck,
+        deckAtSamePosition,
+        arrowIcon,
+        deckPositionShifted,
+        directionColour,
+      } = await hasDeckShiftedPosition(
+        allDecks,
+        allPastMetaDecks,
+        deck.archetype_id
+      );
 
       const row = new UITableRow();
       row.height = 80;
@@ -541,14 +548,14 @@ async function createTable(
       );
       // determine size of deckdata cell width
       textCell.widthWeight =
-        Device.screenSize().width - (samePosition ? 105 : 60);
+        Device.screenSize().width - (deckAtSamePosition ? 60 : 105);
       textCell.titleFont = theme.font.table.deckName;
       textCell.titleColor = Color.black();
       textCell.subtitleFont = theme.font.table.deckWinRate;
       textCell.subtitleColor = winRateColour(deck.win_rate);
 
       // Deck has moved position so show arrow
-      if (!samePosition) {
+      if (!deckAtSamePosition && !isNewDeck) {
         const arrowCell = row.addImageAtURL(arrowIcon as string);
         arrowCell.widthWeight = 25;
         const deckPositionShift = row.addText(
