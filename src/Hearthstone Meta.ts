@@ -98,9 +98,20 @@ if (config.runsInWidget) {
   await createTable(allDecks, allPastMetaDecks);
 } else if (config.runsWithSiri) {
   await createTable(allDecks, allPastMetaDecks);
+  Speech.speak(announceTopDeck(allDecks));
 }
 
 Script.complete();
+
+/**
+ * Formats a string for Siri to speak out
+ * @param allDecks
+ * @returns string
+ */
+function announceTopDeck(allDecks: CombinedDeckData[]): string {
+  const currentTopDeck = allDecks[0];
+  return `Currently the best performing deck is ${currentTopDeck.archetype?.name} with a win rate of ${currentTopDeck.win_rate}%`;
+}
 
 // Getter functions
 async function getJSON(url: string): Promise<any> {
