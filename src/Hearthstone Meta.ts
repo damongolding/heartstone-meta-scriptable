@@ -430,7 +430,7 @@ async function createWidget(
   const widget = new ListWidget();
   const skinBackgroundColour: SkinBackgroundColour = {
     classic: theme.colours.blue,
-    colour: theme.colours.darkGrey,
+    mono: theme.colours.darkGrey,
   };
   widget.backgroundColor = skinBackgroundColour[theme.skin];
 

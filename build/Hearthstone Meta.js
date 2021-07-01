@@ -319,7 +319,7 @@ async function createWidget(allDecks, allPastMetaDecks) {
     const widget = new ListWidget();
     const skinBackgroundColour = {
         classic: theme.colours.blue,
-        colour: theme.colours.darkGrey,
+        mono: theme.colours.darkGrey,
     };
     widget.backgroundColor = skinBackgroundColour[theme.skin];
     // 	if small widget just display image
