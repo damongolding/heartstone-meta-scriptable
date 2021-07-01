@@ -28,6 +28,10 @@ https://user-images.githubusercontent.com/2184238/124096751-c871b280-da52-11eb-8
 
 ## Themes/skins
 
+There are two themes/skins to choose from
+- Colour (defualt)
+- Classic
+
 ### Colour
 
 #### Colour in app view
