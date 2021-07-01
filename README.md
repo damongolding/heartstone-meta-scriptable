@@ -25,22 +25,22 @@ _\* video includes audio_
 
 https://user-images.githubusercontent.com/2184238/124096751-c871b280-da52-11eb-87c3-59aa4bb77b30.mov
 
-
 ## Themes/skins
 
 There are two themes/skins to choose from
-- Colour (defualt)
+
+- Mono (defualt)
 - Classic
 
-### Colour
+### Mono
 
-#### Colour in app view
+#### Mono in app view
 
-![In app view](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-app.png?raw=true)
+![In app view](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/mono-app.png?raw=true)
 
 #### Widget view
 
-![Colour theme widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/colour-widget.png?raw=true)
+![Mono theme widget](https://github.com/damongolding/heartstone-meta-scriptable/blob/main/docs/mono-widget.png?raw=true)
 
 ### Classic
 

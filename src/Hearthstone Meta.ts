@@ -12,10 +12,10 @@ const settings: Settings = {
 };
 
 /**
- * skin can either be "classic" or "colour"
+ * skin can either be "classic" or "mono"
  */
 const theme = {
-  skin: "colour",
+  skin: "mono",
   classImageUrl: (playerClass: string) =>
     `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}-${
       theme.skin

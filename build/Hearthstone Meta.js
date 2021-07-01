@@ -11,10 +11,10 @@ const settings = {
     },
 };
 /**
- * skin can either be "classic" or "colour"
+ * skin can either be "classic" or "mono"
  */
 const theme = {
-    skin: "colour",
+    skin: "mono",
     classImageUrl: (playerClass) => `${settings.assetsBaseUrl}/images/${playerClass.toLowerCase()}-${theme.skin}.png`,
     colours: {
         white: new Color("#fff", 0.1),
