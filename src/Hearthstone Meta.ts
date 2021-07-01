@@ -7,7 +7,7 @@ const settings: Settings = {
     T1: 55,
     T2: 50,
     T3: 45,
-    T4: 0,
+    T4: 100,
   },
 };
 
