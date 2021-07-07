@@ -42,8 +42,7 @@ const theme = {
 };
 // Get data
 const archetypes = await getJSON("https://hsreplay.net/api/v1/archetypes/?format=json");
-const allDecksData = await getJSON("https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION");
-const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
+const allDecksData = await getJSON("https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS");
 // If we fail to get data, alert user
 if (!archetypes || !allDecksData) {
     const alertUser = new Alert();
@@ -53,6 +52,7 @@ if (!archetypes || !allDecksData) {
     // @ts-expect-error
     return Script.complete();
 }
+const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
 // Meta check
 await storeAndRetrievePastMeta(allDecksData);
 await checkIfMetaHasShifted(allDecksData);
@@ -231,7 +231,7 @@ async function sortDecksIntoTiers(decks) {
     let tiers = {};
     for (const deck of decks) {
         for (const [tier, tierFloor] of Object.entries(settings.tierFloors)) {
-            if (parseInt(deck.win_rate) > tierFloor) {
+            if (parseInt(deck.win_rate) >= tierFloor) {
                 if (typeof tiers[tier] == "undefined")
                     tiers[tier] = [];
                 tiers[tier].push(deck);
