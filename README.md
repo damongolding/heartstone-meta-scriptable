@@ -14,7 +14,7 @@ Tapping on the deck while in app view will link you to the HSReplay page for the
 
 1. First download the app from the [IOS store here](https://apps.apple.com/us/app/scriptable/id1405459188?uo=4).
 2. Create a new Script using the + button in the top right.
-3. Copy pasta the Script in [/build/Hearthstone Meta.js](https://raw.githubusercontent.com/damongolding/heartstone-meta-scriptable/main/build/Hearthstone%20Meta.js) to your new Script.
+3. Copy pasta the Script from the [Gist](https://gist.github.com/damongolding/e09f9b909a0008b413d32e4e2272ae59) into your new Script.
 4. To create a widget go your homescreen, enter edit mode (long press) search "Scriptable" and choose which size widget you'd like. Then chose the script from the widget settings 👍 .
 
 ## When launched with Siri
