@@ -50,9 +50,26 @@ const archetypes: Archetype[] = await getJSON(
   "https://hsreplay.net/api/v1/archetypes/?format=json"
 );
 
-const allDecksData: HsReplayDeckData = await getJSON(
-  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS"
-);
+const dataUrls = [
+  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_PATCH",
+  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION",
+  "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS",
+];
+
+const getJsonTasks = dataUrls.map((url) => getJSON(url));
+
+const allDecksDataRequest = await Promise.allSettled(getJsonTasks);
+
+const allDecksData: any =
+  allDecksDataRequest[0] != null
+    ? allDecksDataRequest[0]
+    : allDecksDataRequest[1] != null
+    ? allDecksDataRequest[1]
+    : allDecksDataRequest[2];
+
+// const allDecksData: HsReplayDeckData = await getJSON(
+//   "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS"
+// );
 
 // If we fail to get data, alert user
 if (!archetypes || !allDecksData) {
@@ -115,9 +132,13 @@ function announceTopDeck(allDecks: CombinedDeckData[]): string {
 
 // Getter functions
 async function getJSON(url: string): Promise<any> {
-  const req: Request = new Request(url);
-  const res = await req.loadJSON();
-  return res;
+  try {
+    const req: Request = new Request(url);
+    const res = await req.loadJSON();
+    return res;
+  } catch {
+    return null;
+  }
 }
 
 async function getImage(url: string): Promise<Image> {
