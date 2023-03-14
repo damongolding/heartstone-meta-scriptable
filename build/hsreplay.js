@@ -40,56 +40,11 @@ const theme = {
         down: `${settings.assetsBaseUrl}/images/down.png`,
     },
 };
-// Get data
-const archetypes = await getJSON("https://hsreplay.net/api/v1/archetypes/?format=json");
 const dataUrls = [
     "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_PATCH",
     "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=CURRENT_EXPANSION",
     "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS",
 ];
-const getJsonTasks = dataUrls.map((url) => getJSON(url));
-const allDecksDataRequest = await Promise.allSettled(getJsonTasks);
-const allDecksData = allDecksDataRequest[0] != null
-    ? allDecksDataRequest[0]
-    : allDecksDataRequest[1] != null
-        ? allDecksDataRequest[1]
-        : allDecksDataRequest[2];
-// const allDecksData: HsReplayDeckData = await getJSON(
-//   "https://hsreplay.net/analytics/query/archetype_popularity_distribution_stats_v2/?GameType=RANKED_STANDARD&LeagueRankRange=BRONZE_THROUGH_GOLD&Region=ALL&TimeRange=LAST_7_DAYS"
-// );
-// If we fail to get data, alert user
-if (!archetypes || !allDecksData) {
-    const alertUser = new Alert();
-    alertUser.title = "😱";
-    alertUser.message = "Failed to fetch data";
-    alertUser.present();
-    // @ts-expect-error
-    return Script.complete();
-}
-const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
-// Meta check
-await storeAndRetrievePastMeta(allDecksData);
-await checkIfMetaHasShifted(allDecksData);
-// Format HSreplay data
-const combinedDecks = await combineAllDecks(allDecksData);
-const combinedDecksWithArchetypes = await addArchetypesToDecks(combinedDecks, archetypes);
-const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
-// Format past HSreplay data
-const allPastMetaDecksData = await storeAndRetrievePastMeta(allDecksData, "pastmeta");
-const combinedPastMetaDecks = await combineAllDecks(allPastMetaDecksData);
-const combinedPastMetaDecksWithArchetypes = await addArchetypesToDecks(combinedPastMetaDecks, archetypes);
-const allPastMetaDecks = await sortDecksByWinRate(combinedPastMetaDecksWithArchetypes);
-if (config.runsInWidget) {
-    await createWidget(allDecks, allPastMetaDecks);
-}
-else if (config.runsInApp) {
-    await createTable(allDecks, allPastMetaDecks);
-}
-else if (config.runsWithSiri) {
-    await createTable(allDecks, allPastMetaDecks);
-    Speech.speak(announceTopDeck(allDecks));
-}
-Script.complete();
 /**
  * Formats a string for Siri to speak out
  * @param allDecks
@@ -438,10 +393,68 @@ async function createTable(allDecks, allPastMetaDecks) {
                 deckPositionShift.titleColor = directionColour;
             }
             row.dismissOnSelect = false;
-            row.onSelect = (number) => viewDeckOnHsReplay(number);
+            row.onSelect = () => async (number) => await viewDeckOnHsReplay(number);
             table.addRow(row);
         }
     }
     QuickLook.present(table, true);
 }
+/**
+ * Get which api endpoint is current being used
+ * @returns number either 0, 1 or 2
+ */
+async function getCurrentAPI() {
+    const req = new Request("https://hsreplay.net/meta");
+    const wv = new WebView();
+    await wv.loadRequest(req);
+    let userData = await wv.evaluateJavaScript(`_userdata`);
+    const currentPatchFilter = userData?.features["current-patch-filter"]?.enabled ?? null;
+    const currentExpansionFilter = userData?.features["current-expansion-filter"]?.enabled ?? null;
+    return currentPatchFilter === null ? 0 : currentExpansionFilter ? 1 : 2;
+}
+// Main
+const apiEndpoint = await getCurrentAPI();
+const allDecksDataRequest = await Promise.allSettled([
+    getJSON("https://hsreplay.net/api/v1/archetypes/?format=json"),
+    getJSON(dataUrls[apiEndpoint]),
+]);
+const archetypes = allDecksDataRequest[0].status === "fulfilled"
+    ? allDecksDataRequest[0].value
+    : null;
+const allDecksData = allDecksDataRequest[1].status === "fulfilled"
+    ? allDecksDataRequest[1].value
+    : null;
+// If we fail to get data, alert user
+if (archetypes === null || allDecksData === null) {
+    const alertUser = new Alert();
+    alertUser.title = "😱";
+    alertUser.message = "Failed to fetch data";
+    alertUser.present();
+    // @ts-expect-error
+    return Script.complete();
+}
+const classIcons = await storeAndRetrieveClassIcons(Object.keys(allDecksData.series.metadata));
+// Meta check
+await storeAndRetrievePastMeta(allDecksData);
+await checkIfMetaHasShifted(allDecksData);
+// Format HSreplay data
+const combinedDecks = await combineAllDecks(allDecksData);
+const combinedDecksWithArchetypes = await addArchetypesToDecks(combinedDecks, archetypes);
+const allDecks = await sortDecksByWinRate(combinedDecksWithArchetypes);
+// Format past HSreplay data
+const allPastMetaDecksData = await storeAndRetrievePastMeta(allDecksData, "pastmeta");
+const combinedPastMetaDecks = await combineAllDecks(allPastMetaDecksData);
+const combinedPastMetaDecksWithArchetypes = await addArchetypesToDecks(combinedPastMetaDecks, archetypes);
+const allPastMetaDecks = await sortDecksByWinRate(combinedPastMetaDecksWithArchetypes);
+if (config.runsInWidget) {
+    await createWidget(allDecks, allPastMetaDecks);
+}
+else if (config.runsInApp) {
+    await createTable(allDecks, allPastMetaDecks);
+}
+else if (config.runsWithSiri) {
+    await createTable(allDecks, allPastMetaDecks);
+    Speech.speak(announceTopDeck(allDecks));
+}
+Script.complete();
 

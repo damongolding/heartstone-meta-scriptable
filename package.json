@@ -1,28 +1,29 @@
 {
-  "devDependencies": {
-    "@types/scriptable-ios": "^1.6.1",
-    "typescript": "^4.3.4"
-  },
-  "name": "heartstone-meta-scriptable",
-  "version": "1.0.0",
-  "description": "Scriptible app to fetch and show the Hearthstone meta",
-  "main": "",
-  "types": "src/types.d.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && replace-in-file --configFile=replace-config.js && cp 'build/Hearthstone Meta.js' '../../Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents/Hearthstone Meta.js'"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/damongolding/heartstone-meta-scriptable.git"
-  },
-  "author": "Damon Golding",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/damongolding/heartstone-meta-scriptable/issues"
-  },
-  "homepage": "https://github.com/damongolding/heartstone-meta-scriptable#readme",
-  "dependencies": {
-    "replace-in-file": "^6.2.0"
-  }
+    "devDependencies": {
+        "@types/scriptable-ios": "^1.6.1",
+        "typescript": "^4.9.5"
+    },
+    "name": "heartstone-meta-scriptable",
+    "version": "1.0.0",
+    "description": "Scriptible app to fetch and show the Hearthstone meta",
+    "main": "src/hsreplay.ts",
+    "type": "module",
+    "types": "src/types.d.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "compile": "tsc",
+        "remove-export": "sed -i '' 's/export {};//' 'build/hsreplay.js'",
+        "copy": "cp build/hsreplay.js ~/Library/Mobile\\ Documents/iCloud~dk~simonbs~Scriptable/Documents/",
+        "build": "pnpm compile && pnpm remove-export && pnpm copy"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/damongolding/heartstone-meta-scriptable.git"
+    },
+    "author": "Damon Golding",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/damongolding/heartstone-meta-scriptable/issues"
+    },
+    "homepage": "https://github.com/damongolding/heartstone-meta-scriptable#readme"
 }
