@@ -71,9 +71,16 @@ async function getImage(url) {
     return res;
 }
 async function getClassImage(playerClass) {
-    const req = new Request(theme.classImageUrl(playerClass));
-    const res = await req.loadImage();
-    return res;
+    try {
+        const req = new Request(theme.classImageUrl(playerClass));
+        const res = await req.loadImage();
+        return res;
+    }
+    catch {
+        const req = new Request(theme.classImageUrl("MAGE"));
+        const res = await req.loadImage();
+        return res;
+    }
 }
 /**
  * Checks to see if our saved files of out of date = the meta has changed
@@ -122,7 +129,7 @@ async function storeAndRetrieveClassIcons(playerClasses) {
     for await (let playerClass of playerClasses) {
         playerClass = playerClass.toLowerCase();
         if (!manager.fileExists(`${localPath}/${playerClass}-${theme.skin}.png`)) {
-            const classIcon = await getClassImage(playerClass);
+            let classIcon = await getClassImage(playerClass);
             manager.writeImage(`${localPath}/${playerClass}-${theme.skin}.png`, classIcon);
         }
         const classIconToAdd = manager.readImage(`${localPath}/${playerClass}-${theme.skin}.png`);

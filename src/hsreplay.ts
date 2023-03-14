@@ -79,9 +79,15 @@ async function getImage(url: string): Promise<Image> {
 }
 
 async function getClassImage(playerClass: string): Promise<Image> {
-    const req = new Request(theme.classImageUrl(playerClass));
-    const res = await req.loadImage();
-    return res;
+    try {
+        const req = new Request(theme.classImageUrl(playerClass));
+        const res = await req.loadImage();
+        return res;
+    } catch {
+        const req = new Request(theme.classImageUrl("MAGE"));
+        const res = await req.loadImage();
+        return res;
+    }
 }
 
 /**
@@ -162,7 +168,8 @@ async function storeAndRetrieveClassIcons(
         if (
             !manager.fileExists(`${localPath}/${playerClass}-${theme.skin}.png`)
         ) {
-            const classIcon = await getClassImage(playerClass);
+            let classIcon = await getClassImage(playerClass);
+
             manager.writeImage(
                 `${localPath}/${playerClass}-${theme.skin}.png`,
                 classIcon
